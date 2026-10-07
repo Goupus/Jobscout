@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jobscout"
-version = "0.1.0"
+version = "0.2.0"
 description = "Scan job boards, company and research-group websites, and match postings against your applicant profile and interests with an LLM."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,7 +21,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dashboard = ["streamlit>=1.35", "pandas>=2.0"]
+app = ["streamlit>=1.45", "pandas>=2.0", "altair>=5"]
+dashboard = ["streamlit>=1.45", "pandas>=2.0", "altair>=5"]  # old name
 dev = ["pytest>=8.0"]
 
 [project.scripts]
@@ -31,7 +32,7 @@ jobscout = "jobscout.cli:app"
 where = ["src"]
 
 [tool.setuptools.package-data]
-jobscout = ["templates/data/*", "templates/data/profile/*", "templates/data/.github/workflows/*"]
+jobscout = ["templates/interview/*", "templates/data/*", "templates/data/profile/*", "templates/data/.github/workflows/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -7,6 +7,7 @@ from jobscout.models import MatchCategory
 from jobscout.pipeline import run
 from jobscout.profile import load_profile
 from jobscout.storage import Store
+from jobscout.tracker import Tracker
 
 HTML = '<li class="job"><h3>ML Process Engineer</h3><a href="/j/1">x</a></li>'
 
@@ -34,7 +35,8 @@ def test_end_to_end(data_dir, fake_llm):
     assert len(r1.errors) == 1 and "broken" in r1.errors[0]
 
     store = Store(data_dir.db)
-    rows = store.overview()
+    tracker = Tracker(data_dir.tracker)
+    rows = store.overview(tracker)
     assert {r["category"] for r in rows} == {MatchCategory.TOP.value}
     assert rows[0]["match"]["profile_tailoring"] == ["Move ML projects to the top"]
 
@@ -43,29 +45,31 @@ def test_end_to_end(data_dir, fake_llm):
     assert r2.new_jobs == 0 and r2.matched == 0
 
     # dismissed jobs are not re-matched; a changed profile re-matches the rest
-    store.set_status(rows[0]["uid"], "dismissed")
+    tracker.set(rows[0]["uid"], state="dismissed")
     (data_dir.profile_dir / "notes.md").write_text("New: I also like catalysis.")
     r3 = run(data_dir, settings, _sources(), load_profile(data_dir.profile_dir), _fetch, fake_llm, scan=False)
     assert r3.matched == 1
     store.close()
 
 
-def test_interview_writes_profile_doc(data_dir):
+def test_cli_interview_produces_form(data_dir):
     class InterviewLLM:
         def __init__(self):
             self.n = 0
 
         def chat(self, messages, *, fast=False):
-            if "Summarize the interview" in messages[0]["content"]:
-                return "## Motivation & direction\nWants ML in process engineering."
             self.n += 1
-            return "What motivates you?" if self.n == 1 else "FINISHED"
+            if self.n == 1:
+                return "What motivates you?"
+            return "```yaml\nsummary: Wants ML in process engineering.\ninterests:\n  topics: [catalysis]\n```"
 
+    answers = iter(["Impact", "done"])
     path = run_interview(load_profile(data_dir.profile_dir), InterviewLLM(), data_dir.profile_dir,
-                         ask=lambda _: "Impact", say=lambda _: None)
-    text = path.read_text()
-    assert "Wants ML" in text and "**A:** Impact" in text
-    assert path.name in load_profile(data_dir.profile_dir).documents
+                         ask=lambda _: next(answers), say=lambda _: None)
+    assert path.name == "interview_form.yaml"
+    assert "Wants ML" in path.read_text()
+    assert list(data_dir.profile_dir.glob("_interview_transcript_*.md"))
+    assert "interview_form.yaml" in load_profile(data_dir.profile_dir).documents
 
 
 def test_cli_init(tmp_path):

@@ -4,8 +4,9 @@ The profile directory may contain:
 
 * ``profile.yaml``    – structured facts (skills, experience, education, constraints)
 * ``interests.yaml``  – what you *want*: topics, role types, values, dealbreakers
-* any ``*.md``, ``*.txt`` or ``*.pdf`` – CV, interview transcripts, personality
-  test results, reference letters, ... (all are read as free text)
+* ``interview_form.yaml`` – the filled interview form (see ``interview_form.py``)
+* any ``*.md``, ``*.txt``, ``*.pdf`` or other ``*.yaml`` – CV, personality test
+  results, reference letters, ... (all are read as free text)
 
 Files whose name starts with ``_`` or ``.`` are ignored.
 """
@@ -91,7 +92,7 @@ def load_profile(profile_dir: Path) -> Profile:
             facts = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         elif path.name == "interests.yaml":
             interests = Interests.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
-        elif path.suffix.lower() in TEXT_SUFFIXES:
+        elif path.suffix.lower() in TEXT_SUFFIXES or path.suffix.lower() in {".yaml", ".yml"}:
             docs[path.name] = path.read_text(encoding="utf-8")[:MAX_DOC_CHARS]
         elif path.suffix.lower() == ".pdf":
             docs[path.name] = _read_pdf(path)[:MAX_DOC_CHARS]

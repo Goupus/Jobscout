@@ -92,6 +92,10 @@ class Paths(BaseModel):
     def db(self) -> Path:
         return self.data_dir / "jobscout.db"
 
+    @property
+    def tracker(self) -> Path:
+        return self.data_dir / "tracker.yaml"
+
 
 def resolve_paths(data_dir: str | Path | None = None) -> Paths:
     raw = data_dir or os.environ.get("JOBSCOUT_DATA_DIR") or "data"
@@ -110,7 +114,45 @@ def load_settings(paths: Paths) -> Settings:
     return Settings.model_validate(data)
 
 
+def load_source_defaults(paths: Paths) -> dict[str, Any]:
+    data = _read_yaml(paths.sources) or {}
+    return dict(data.get("defaults") or {}) if isinstance(data, dict) else {}
+
+
 def load_sources(paths: Paths) -> list[SourceConfig]:
+    """Sources with the optional top-level ``defaults:`` applied (source keys win)."""
     data = _read_yaml(paths.sources) or {}
     items = data.get("sources", []) if isinstance(data, dict) else data
-    return [SourceConfig.model_validate(s) for s in items or []]
+    defaults = load_source_defaults(paths)
+    return [SourceConfig.model_validate({**defaults, **s}) for s in items or []]
+
+
+def save_sources(paths: Paths, sources: list[SourceConfig], defaults: dict[str, Any] | None = None) -> None:
+    """Write sources.yaml; values equal to the defaults are not repeated per source."""
+    defaults = defaults or {}
+    items = []
+    for s in sources:
+        d = s.model_dump(exclude_defaults=True)
+        for k in ("name", "type", "url"):
+            d[k] = getattr(s, k)
+        for k, v in defaults.items():
+            if d.get(k) == v:
+                d.pop(k)
+        ordered = {k: d.pop(k) for k in ("name", "type", "url")}
+        items.append({**ordered, **d})
+    body: dict[str, Any] = {}
+    if defaults:
+        body["defaults"] = defaults
+    body["sources"] = items
+    header = ("# Job sources for jobscout – edit here or on the 'Sources' page of the app.\n"
+              "# 'defaults' apply to every source unless the source sets the key itself.\n")
+    paths.sources.write_text(header + yaml.safe_dump(body, allow_unicode=True, sort_keys=False, width=100),
+                             encoding="utf-8")
+
+
+def save_settings(paths: Paths, settings: Settings) -> None:
+    paths.settings.write_text(
+        "# jobscout settings – edit here or on the 'Scan & sync' page of the app.\n"
+        + yaml.safe_dump(settings.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )

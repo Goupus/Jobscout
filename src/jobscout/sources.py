@@ -183,3 +183,8 @@ def _scan_one(cfg: SourceConfig, fetch: Fetcher, llm: ChatBackend | None) -> lis
     else:  # pragma: no cover - guarded by pydantic Literal
         raise ValueError(cfg.type)
     return _keyword_filter([j for j in jobs if j.title], cfg)
+
+
+def preview_source(cfg: SourceConfig, settings: Settings, llm: ChatBackend | None) -> list[JobPosting]:
+    """Scan one source with the real network without storing anything (for testing a source)."""
+    return scan_source(cfg, make_fetcher(settings), llm)

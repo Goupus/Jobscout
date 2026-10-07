@@ -12,6 +12,7 @@ from .matcher import match_job, prescore
 from .profile import Profile
 from .sources import Fetcher, scan_source
 from .storage import Store
+from .tracker import Tracker
 
 log = logging.getLogger(__name__)
 
@@ -43,8 +44,9 @@ def scan_all(sources: list[SourceConfig], store: Store, fetch: Fetcher, llm: Cha
         log.info("%s: %d postings", cfg.name, len(jobs))
 
 
-def match_pending(store: Store, profile: Profile, llm: ChatBackend, settings: Settings, report: RunReport, model_name: str = "") -> None:
-    pending = store.unmatched_jobs(profile.fingerprint, settings.matching.max_matches_per_run)
+def match_pending(store: Store, profile: Profile, llm: ChatBackend, settings: Settings, report: RunReport,
+                  model_name: str = "", dismissed: set[str] | None = None) -> None:
+    pending = store.unmatched_jobs(profile.fingerprint, settings.matching.max_matches_per_run, exclude=dismissed)
     for job in pending:
         if prescore(job, profile) < settings.matching.prefilter_min_score:
             report.skipped_prefilter += 1
@@ -67,7 +69,7 @@ def run(paths: Paths, settings: Settings, sources: list[SourceConfig], profile: 
         if scan:
             scan_all(sources, store, fetch, llm, report)
         if match:
-            match_pending(store, profile, llm, settings, report, model_name)
+            match_pending(store, profile, llm, settings, report, model_name, Tracker(paths.tracker).dismissed())
         store.log_run(started, datetime.now(timezone.utc).isoformat(), report.new_jobs, report.matched, report.errors)
     finally:
         store.close()

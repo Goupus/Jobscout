@@ -1,0 +1,47 @@
+# jobscout interview form – v1
+# Filled in by an LLM after an interview, then stored as profile/interview_form.yaml.
+form_version: 1
+completed_on: ""            # YYYY-MM-DD
+summary: ""                 # 3-5 sentences: who is this person, what are they looking for?
+
+motivation:
+  why_now: ""               # why are they looking right now?
+  long_term_direction: ""   # where do they want to be in 3-5 years?
+  application_story: ""     # the red thread to tell in applications (2-4 sentences)
+
+strengths:                  # 3-6 entries
+  - strength: ""
+    evidence: ""            # concrete project, result or situation
+
+achievements:               # 2-5 entries, with measurable results where possible
+  - what: ""
+    result: ""
+
+tasks:
+  favourite: []             # tasks that give energy
+  least_favourite: []       # tasks to avoid
+
+working_style:
+  environment: ""           # academia vs. industry, team size, culture
+  supervision: ""           # how much guidance / independence
+  remote_and_travel: ""
+
+personality: ""             # self-description and results of personality tests, if shared
+
+interests:                  # same structure as profile/interests.yaml
+  topics: []                # ranked, most important first
+  role_types: []
+  preferred_locations: []
+  values: []
+  dealbreakers: []
+  notes: ""
+
+constraints:
+  start_date: ""
+  locations: ""
+  salary_or_funding: ""
+  contract: ""
+  languages: ""
+  other: ""
+
+open_questions: []          # things the person is still unsure about

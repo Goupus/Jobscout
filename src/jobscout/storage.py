@@ -8,7 +8,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
+from typing import TYPE_CHECKING
+
 from .models import JobPosting, MatchResult
+
+if TYPE_CHECKING:
+    from .tracker import Tracker
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -83,7 +88,6 @@ class Store:
                 (job.uid, job.source, job.title, job.url, job.organization, job.location,
                  job.description, job.deadline, ts, ts),
             )
-            c.execute("INSERT OR IGNORE INTO status(job_uid, state, updated_at) VALUES (?, 'new', ?)", (job.uid, ts))
             return True
 
     def get_job(self, uid: str) -> JobPosting | None:
@@ -96,18 +100,18 @@ class Store:
             description=row["description"] or "", deadline=row["deadline"],
         )
 
-    def unmatched_jobs(self, profile_hash: str, limit: int) -> list[JobPosting]:
+    def unmatched_jobs(self, profile_hash: str, limit: int, exclude: set[str] | None = None) -> list[JobPosting]:
         """Jobs never matched, or matched against an older profile version."""
+        exclude = exclude or set()
         rows = self.conn.execute(
             """SELECT j.uid FROM jobs j
                LEFT JOIN matches m ON m.job_uid = j.uid
-               LEFT JOIN status s ON s.job_uid = j.uid
                WHERE (m.job_uid IS NULL OR m.profile_hash IS NOT ?)
-                 AND COALESCE(s.state, 'new') != 'dismissed'
-               ORDER BY j.first_seen DESC LIMIT ?""",
-            (profile_hash, limit),
+               ORDER BY j.first_seen DESC""",
+            (profile_hash,),
         ).fetchall()
-        return [j for j in (self.get_job(r["uid"]) for r in rows) if j]
+        uids = [r["uid"] for r in rows if r["uid"] not in exclude][:limit]
+        return [j for j in (self.get_job(u) for u in uids) if j]
 
     # --- matches --------------------------------------------------------
     def save_match(self, m: MatchResult, profile_hash: str) -> None:
@@ -118,34 +122,20 @@ class Store:
                  m.model_dump_json(), m.model, m.matched_at.isoformat(), profile_hash),
             )
 
-    def overview(self) -> list[dict]:
+    def overview(self, tracker: "Tracker | None" = None) -> list[dict]:
         rows = self.conn.execute(
-            """SELECT j.*, m.payload, m.profile_fit, m.interest_fit, m.category,
-                      COALESCE(s.state,'new') AS state, COALESCE(s.note,'') AS note
+            """SELECT j.*, m.payload, m.profile_fit, m.interest_fit, m.category
                FROM jobs j
                LEFT JOIN matches m ON m.job_uid = j.uid
-               LEFT JOIN status s ON s.job_uid = j.uid
                ORDER BY j.first_seen DESC"""
         ).fetchall()
         out = []
         for r in rows:
             d = dict(r)
             d["match"] = json.loads(d.pop("payload")) if d.get("payload") else None
+            d.update(tracker.get(d["uid"]) if tracker else {"state": "new", "note": ""})
             out.append(d)
         return out
-
-    # --- status ---------------------------------------------------------
-    def set_status(self, uid: str, state: str, note: str | None = None) -> None:
-        from datetime import datetime, timezone
-
-        ts = datetime.now(timezone.utc).isoformat()
-        with self.tx() as c:
-            c.execute(
-                """INSERT INTO status(job_uid, state, note, updated_at) VALUES (?,?,COALESCE(?, ''),?)
-                   ON CONFLICT(job_uid) DO UPDATE SET state=excluded.state,
-                   note=COALESCE(?, status.note), updated_at=excluded.updated_at""",
-                (uid, state, note, ts, note),
-            )
 
     # --- runs -----------------------------------------------------------
     def log_run(self, started: str, finished: str, new_jobs: int, matched: int, errors: list[str]) -> None:
