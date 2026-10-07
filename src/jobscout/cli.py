@@ -137,6 +137,12 @@ def run_app(data_dir: Optional[Path] = DataDir, port: int = 8501) -> None:
     """Open the jobscout app (setup, profile, interview, sources, matches)."""
     paths = resolve_paths(data_dir)
     app_path = Path(__file__).parent / "app" / "main.py"
+    # skip Streamlit's one-time "enter your email" prompt, which looks like the app hangs
+    creds = Path.home() / ".streamlit" / "credentials.toml"
+    if not creds.exists():
+        creds.parent.mkdir(parents=True, exist_ok=True)
+        creds.write_text('[general]\nemail = ""\n', encoding="utf-8")
+    typer.echo("Starting jobscout – it opens in your browser at http://localhost:%d (stop with Ctrl+C)." % port)
     subprocess.run(
         [sys.executable, "-m", "streamlit", "run", str(app_path), "--server.port", str(port),
          "--browser.gatherUsageStats", "false", "--client.toolbarMode", "minimal", "--", "--data-dir", str(paths.data_dir)],
