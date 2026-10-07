@@ -18,7 +18,8 @@ import logging
 from typing import Callable
 from urllib.parse import urljoin
 
-import feedparser
+import xml.etree.ElementTree as ET
+
 import httpx
 from bs4 import BeautifulSoup
 
@@ -68,17 +69,53 @@ def _keyword_filter(jobs: list[JobPosting], cfg: SourceConfig) -> list[JobPostin
 
 
 # --- rss -----------------------------------------------------------------
+def _local(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1].lower()
+
+
+def _child_text(el: ET.Element, *names: str) -> str:
+    for child in el:
+        if _local(child.tag) in names:
+            text = "".join(child.itertext()).strip()
+            if text:
+                return text
+    return ""
+
+
+def _atom_link(el: ET.Element) -> str:
+    for child in el:
+        if _local(child.tag) == "link" and child.get("href") and child.get("rel", "alternate") == "alternate":
+            return child.get("href", "")
+    return ""
+
+
+def parse_feed(xml_text: str) -> list[dict[str, str]]:
+    """Minimal RSS 2.0 / RSS 1.0 / Atom parser (stdlib only)."""
+    root = ET.fromstring(xml_text.strip().encode("utf-8"))
+    entries = []
+    for el in root.iter():
+        if _local(el.tag) not in {"item", "entry"}:
+            continue
+        author = _child_text(el, "author", "creator")
+        entries.append({
+            "title": _child_text(el, "title"),
+            "link": _atom_link(el) or _child_text(el, "link", "guid"),
+            "description": _child_text(el, "description", "summary", "content", "encoded"),
+            "author": author.split("\n")[0].strip(),
+        })
+    return entries
+
+
 def scan_rss(cfg: SourceConfig, fetch: Fetcher) -> list[JobPosting]:
-    feed = feedparser.parse(fetch(cfg.url))
     jobs = []
-    for e in feed.entries:
-        desc = e.get("summary") or e.get("description") or ""
+    for e in parse_feed(fetch(cfg.url)):
+        desc = e["description"]
         jobs.append(
             JobPosting(
                 source=cfg.name,
-                title=e.get("title", "").strip(),
-                url=e.get("link", cfg.url),
-                organization=cfg.organization or e.get("author"),
+                title=e["title"],
+                url=e["link"] or cfg.url,
+                organization=cfg.organization or e["author"] or None,
                 description=html_to_text(desc, 8000) if "<" in desc else desc,
             )
         )

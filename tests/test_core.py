@@ -101,3 +101,21 @@ def test_broken_extra_page_is_skipped():
     cfg = SourceConfig(name="c", type="html", url="https://example.com/p1", extra_urls=["https://example.com/p2"],
                        item_selector="li.job", title_selector="h3")
     assert len(scan_source(cfg, fetch, None)) == 2
+
+
+ATOM = """<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Jobs</title>
+  <entry><title>Doctoral researcher – hybrid models</title>
+    <link rel="alternate" href="https://uni.example/jobs/7"/>
+    <author><name>Uni Y</name></author>
+    <summary type="html">&lt;b&gt;ML&lt;/b&gt; meets process design</summary></entry>
+</feed>"""
+
+
+def test_scan_atom():
+    cfg = SourceConfig(name="a", type="rss", url="https://uni.example/atom")
+    jobs = scan_source(cfg, lambda url: ATOM, None)
+    assert jobs[0].title == "Doctoral researcher – hybrid models"
+    assert jobs[0].url == "https://uni.example/jobs/7"
+    assert jobs[0].organization == "Uni Y"
+    assert jobs[0].description == "ML meets process design"
