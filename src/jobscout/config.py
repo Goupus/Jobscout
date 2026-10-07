@@ -42,9 +42,16 @@ class MatchingSettings(BaseModel):
     language: str = "en"  # language of the generated advice, e.g. "de"
 
 
+class PeopleSettings(BaseModel):
+    refresh_days: int = Field(30, ge=1, description="Re-analyze a person at least this often")
+    max_per_run: int = Field(10, ge=0, description="Cost limit: people analyzed per scan")
+    works: int = Field(15, ge=1, le=50, description="Recent publications read per person")
+
+
 class Settings(BaseModel):
     llm: LLMSettings = LLMSettings()
     matching: MatchingSettings = MatchingSettings()
+    people: PeopleSettings = PeopleSettings()
     http_timeout: float = 30.0
     user_agent: str = "jobscout/0.1 (+https://github.com/Goupus/Jobscout)"
 

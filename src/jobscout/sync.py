@@ -80,6 +80,14 @@ def merge_databases(target: Path, other: Path) -> None:
                    LEFT JOIN matches m ON m.job_uid = o.job_uid
                    WHERE m.job_uid IS NULL OR o.matched_at > m.matched_at"""
             )
+            try:  # databases created before people support have no such table
+                conn.execute(
+                    """INSERT OR REPLACE INTO people_insights SELECT o.* FROM other.people_insights o
+                       LEFT JOIN people_insights p ON p.slug = o.slug
+                       WHERE p.slug IS NULL OR o.analyzed_at > p.analyzed_at"""
+                )
+            except sqlite3.OperationalError:
+                pass
             conn.execute(
                 """INSERT INTO runs(started_at, finished_at, new_jobs, matched, errors)
                    SELECT started_at, finished_at, new_jobs, matched, errors FROM other.runs

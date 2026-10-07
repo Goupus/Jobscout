@@ -1,6 +1,7 @@
 # Scheduled scan – lives in your PRIVATE data repo, so logs and results stay private.
 # Required repository secrets (Settings → Secrets and variables → Actions):
 #   ANTHROPIC_API_KEY  (or OPENAI_API_KEY / whatever your LiteLLM model needs)
+#   OPENALEX_API_KEY   (optional – free key from openalex.org, for the People feature)
 name: jobscout scan
 
 on:
@@ -38,6 +39,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}   # optional, raises OpenAlex limits
         run: jobscout scan --data-dir .
 
       - name: Commit results

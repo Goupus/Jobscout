@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from jobscout import sync  # noqa: E402
 from jobscout.app import common  # noqa: E402
-from jobscout.app.views import interview, matches, profile, run, sources, start  # noqa: E402
+from jobscout.app.views import interview, matches, people, profile, run, sources, start  # noqa: E402
 
 st.set_page_config(page_title="jobscout", page_icon="🧭", layout="wide")
 
@@ -26,6 +26,7 @@ PAGES = [
         (profile.render, "Profile", "👤", "profile"),
         (interview.render, "Interview", "💬", "interview"),
         (sources.render, "Sources", "🔎", "sources"),
+        (people.render, "People", "👥", "people"),
         (matches.render, "Matches", "📋", "matches"),
         (run.render, "Scan & sync", "🔄", "run"),
     ]

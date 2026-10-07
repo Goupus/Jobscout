@@ -23,6 +23,7 @@ class RunReport:
     seen_jobs: int = 0
     matched: int = 0
     skipped_prefilter: int = 0
+    people_analyzed: int = 0
     errors: list[str] = field(default_factory=list)
 
 
@@ -61,7 +62,8 @@ def match_pending(store: Store, profile: Profile, llm: ChatBackend, settings: Se
 
 
 def run(paths: Paths, settings: Settings, sources: list[SourceConfig], profile: Profile,
-        fetch: Fetcher, llm: ChatBackend, model_name: str = "", scan: bool = True, match: bool = True) -> RunReport:
+        fetch: Fetcher, llm: ChatBackend, model_name: str = "", scan: bool = True, match: bool = True,
+        people: bool = True, openalex=None) -> RunReport:
     started = datetime.now(timezone.utc).isoformat()
     report = RunReport()
     store = Store(paths.db)
@@ -70,6 +72,14 @@ def run(paths: Paths, settings: Settings, sources: list[SourceConfig], profile: 
             scan_all(sources, store, fetch, llm, report)
         if match:
             match_pending(store, profile, llm, settings, report, model_name, Tracker(paths.tracker).dismissed())
+        if people:
+            from .people import OpenAlexClient, analyze_people, default_get_json, load_people
+
+            if load_people(paths):
+                oa = openalex if openalex is not None else OpenAlexClient(default_get_json(settings))
+                prep = analyze_people(paths, settings, profile, llm, store, oa, fetch)
+                report.people_analyzed = prep.analyzed
+                report.errors += prep.errors
         store.log_run(started, datetime.now(timezone.utc).isoformat(), report.new_jobs, report.matched, report.errors)
     finally:
         store.close()

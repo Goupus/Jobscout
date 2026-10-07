@@ -104,3 +104,32 @@ def test_sources_add_by_link(data_dir, monkeypatch):
     assert urls.count("https://example.org/research-group/open-positions") == 1   # already existed
     new = next(s for s in saved if s["url"] == "https://uni.example/pse/jobs")
     assert new["name"] == "PSE Group – Open positions" and new["fetch_details"] is True
+
+
+def test_people_page_add_confirm_and_show(data_dir, monkeypatch):
+    from jobscout.app.views import people as page
+    from jobscout.people import Person, load_people, save_people
+    from jobscout.storage import Store
+
+    from test_people import fake_get
+
+    monkeypatch.setattr(page, "default_get_json", lambda s: fake_get([]))
+    at = _open("people", data_dir, monkeypatch)
+    assert not at.exception
+    at.text_input(key="pp_name").set_value("Ada Example")
+    at.text_input(key="pp_aff").set_value("Somewhere Else")
+    at.text_input(key="pp_li").set_value("https://www.linkedin.com/in/ada")
+    next(b for b in at.button if b.label == "Add person").click().run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert load_people(data_dir)[0].linkedin == "https://www.linkedin.com/in/ada"
+    # two OpenAlex candidates → user confirms the first one
+    next(b for b in at.button if b.label == "Confirm").click().run()
+    assert load_people(data_dir)[0].openalex_id == "A111"
+
+    store = Store(data_dir.db)
+    store.save_person_insight("ada-example", {"insight": {"overlap_score": 77, "research_summary": "ML x PSE",
+                                                         "draft_message": "Subject: Hello"}, "analyzed_at": "2026-10-07T00:00:00+00:00"})
+    store.close()
+    at = _open("people", data_dir, monkeypatch)
+    assert not at.exception
+    assert any("overlap 77" in e.label for e in at.expander)

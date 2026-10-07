@@ -44,6 +44,11 @@ CREATE TABLE IF NOT EXISTS status (
     note TEXT DEFAULT '',
     updated_at TEXT
 );
+CREATE TABLE IF NOT EXISTS people_insights (
+    slug TEXT PRIMARY KEY,
+    payload TEXT NOT NULL,
+    analyzed_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     started_at TEXT NOT NULL,
@@ -136,6 +141,20 @@ class Store:
             d.update(tracker.get(d["uid"]) if tracker else {"state": "new", "note": ""})
             out.append(d)
         return out
+
+    # --- people -----------------------------------------------------------
+    def get_person_insight(self, slug: str) -> dict | None:
+        row = self.conn.execute("SELECT payload FROM people_insights WHERE slug=?", (slug,)).fetchone()
+        return json.loads(row["payload"]) if row else None
+
+    def save_person_insight(self, slug: str, payload: dict) -> None:
+        with self.tx() as c:
+            c.execute("INSERT OR REPLACE INTO people_insights VALUES (?,?,?)",
+                      (slug, json.dumps(payload, ensure_ascii=False), payload.get("analyzed_at", "")))
+
+    def all_person_insights(self) -> dict[str, dict]:
+        rows = self.conn.execute("SELECT slug, payload FROM people_insights").fetchall()
+        return {r["slug"]: json.loads(r["payload"]) for r in rows}
 
     # --- runs -----------------------------------------------------------
     def log_run(self, started: str, finished: str, new_jobs: int, matched: int, errors: list[str]) -> None:

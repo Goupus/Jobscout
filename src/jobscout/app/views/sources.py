@@ -35,6 +35,7 @@ def render() -> None:
     file_items = (yaml.safe_load(p.sources.read_text(encoding="utf-8")) or {}).get("sources", []) if p.sources.exists() else []
 
     _add_links(p, file_items, raw_defaults)
+    st.page_link(common.page("people"), label="Want to follow a specific researcher or contact? Add them on the People page", icon="👥")
 
     st.subheader(f"Your sources ({len(sources)})")
     with st.expander("How does jobscout read a link? · Which type should I use?"):

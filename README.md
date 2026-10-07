@@ -47,7 +47,7 @@ Your CV and match results are personal. jobscout therefore separates **code** fr
 | Repository | Visibility | Contains |
 |---|---|---|
 | `jobscout` (this repo) | public | code, tests, templates |
-| `jobscout-data` (yours) | **private** | `profile/`, `sources.yaml`, `settings.yaml`, `jobscout.db`, the scheduled workflow |
+| `jobscout-data` (yours) | **private** | `profile/`, `sources.yaml`, `people.yaml`, `settings.yaml`, `tracker.yaml`, `jobscout.db`, the scheduled workflow |
 
 The scheduled scan runs in your **private** data repo, so logs and results never become public.
 
@@ -81,6 +81,24 @@ working style, personality, interests, constraints). Two ways to fill it:
 
 Optionally the form's interests are merged into `interests.yaml`. The prompt is available in
 [English](src/jobscout/templates/interview/prompt_en.md) and [German](src/jobscout/templates/interview/prompt_de.md).
+
+## People: follow researchers and contacts
+
+On the **People** page you add people you'd like to work with – name, affiliation, LinkedIn, group page, ORCID.
+jobscout collects their *public professional* work and the LLM tells you:
+
+* **overlap score** and **where your profile overlaps** with their work
+* **how you could contribute** (methods, data, code, case studies, student/remote collaboration)
+* **how to reach out** – angle, hooks, questions, and a **draft message**
+* **papers to read first** and any **open positions** mentioned
+
+Material: recent publications and abstracts from [OpenAlex](https://openalex.org) (the right author profile is
+confirmed once in the app), the text of their group/personal page, and documents you upload for the person.
+People are re-analyzed during scans when something changed, otherwise every 30 days (`people.refresh_days`).
+A free `OPENALEX_API_KEY` (env var / repository secret) raises OpenAlex's rate limits but isn't required.
+
+LinkedIn pages are **not** fetched – they need a login and LinkedIn's terms forbid automated access. Keep the link
+for yourself, or save the profile as PDF on LinkedIn (*More → Save to PDF*) and upload it to the person.
 
 ## Scheduled scans (twice a week) with GitHub Actions
 

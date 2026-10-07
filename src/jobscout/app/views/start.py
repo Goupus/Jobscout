@@ -6,7 +6,7 @@ import streamlit as st
 
 from jobscout.app import common
 
-PAGE_FILES = {"profile": "Profile", "interview": "Interview", "sources": "Sources", "run": "Scan & sync", "matches": "Matches"}
+PAGE_FILES = {"people": "People", "profile": "Profile", "interview": "Interview", "sources": "Sources", "run": "Scan & sync", "matches": "Matches"}
 
 
 def render() -> None:
@@ -42,8 +42,9 @@ def render() -> None:
 1. **Profile** – your CV and other documents, facts (`profile.yaml`) and interests (`interests.yaml`).
 2. **Interview** – a chatbot asks you what your CV doesn't say and fills in a fixed form.
 3. **Sources** – job boards, career pages and research-group websites. Pages without structure are read by the LLM.
-4. **Scan** – runs on GitHub on Monday and Thursday (or here on demand). New postings are scored by the LLM.
-5. **Matches** – fit map, filters, tips per posting and your application tracker.
+4. **People** – researchers you'd like to work with: overlaps with your profile, ways to contribute, outreach drafts.
+5. **Scan** – runs on GitHub on Monday and Thursday (or here on demand). New postings are scored by the LLM.
+6. **Matches** – fit map, filters, tips per posting and your application tracker.
 
 Your data lives in a separate **private** GitHub repository. Use *Save to GitHub* in the sidebar after changes.
 """

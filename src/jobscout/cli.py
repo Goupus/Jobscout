@@ -71,7 +71,8 @@ def scan(
     )
     typer.echo(
         f"new: {report.new_jobs} | already known: {report.seen_jobs} | matched: {report.matched} "
-        f"| skipped by pre-filter: {report.skipped_prefilter} | errors: {len(report.errors)}"
+        f"| skipped by pre-filter: {report.skipped_prefilter} | people analyzed: {report.people_analyzed} "
+        f"| errors: {len(report.errors)}"
     )
     for e in report.errors:
         typer.echo(f"  ! {e}", err=True)
