@@ -97,7 +97,7 @@ Set `JOBSCOUT_DATA_DIR` to skip `--data-dir` every time.
 sources:
   - name: Process Systems group                 # free text
     type: llm_page                              # rss | html | llm_page
-    url: https://uni.example/psе/open-positions
+    url: https://uni.example/pse/open-positions
     organization: Example University            # optional default
     include_keywords: [phd, machine learning]   # optional pre-filter
     exclude_keywords: [internship]
