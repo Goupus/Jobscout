@@ -81,3 +81,23 @@ def test_scan_llm_page(fake_llm):
     jobs = scan_source(cfg, lambda url: "<html><body><a href='/jobs/phd-1'>PhD</a></body></html>", fake_llm)
     assert jobs[0].url == "https://uni.example/jobs/phd-1"
     assert jobs[0].organization == "Uni X"
+
+
+def test_extra_urls_and_focus(fake_llm):
+    cfg = SourceConfig(name="g", type="llm_page", url="https://uni.example/a", extra_urls=["https://uni.example/b"],
+                       focus="machine learning for process engineering")
+    jobs = scan_source(cfg, lambda url: "<html></html>", fake_llm)
+    assert len(fake_llm.calls) == 2                      # both pages scanned
+    assert len(jobs) == 1                                 # same posting deduplicated
+    assert "machine learning for process engineering" in fake_llm.calls[0][0]["content"]
+
+
+def test_broken_extra_page_is_skipped():
+    def fetch(url):
+        if url.endswith("2"):
+            raise ConnectionError("down")
+        return HTML
+
+    cfg = SourceConfig(name="c", type="html", url="https://example.com/p1", extra_urls=["https://example.com/p2"],
+                       item_selector="li.job", title_selector="h3")
+    assert len(scan_source(cfg, fetch, None)) == 2

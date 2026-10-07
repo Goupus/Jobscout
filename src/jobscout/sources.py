@@ -128,8 +128,12 @@ def scan_llm_page(cfg: SourceConfig, fetch: Fetcher, llm: ChatBackend) -> list[J
         for a in soup.find_all("a", href=True)
         if a.get_text(strip=True)
     )[:6000]
+    system = EXTRACT_SYSTEM
+    if cfg.focus:
+        system += (f"\nOnly include positions that could plausibly be relevant to: {cfg.focus}. "
+                   "When in doubt, include the position.")
     user = f"Page URL: {cfg.url}\n\nPAGE TEXT:\n{html_to_text(html)}\n\nLINKS ON PAGE:\n{links}"
-    data = ask_json(llm, EXTRACT_SYSTEM, user, fast=True)
+    data = ask_json(llm, system, user, fast=True)
     jobs = []
     for p in (data or {}).get("positions", []):
         if not p.get("title"):
@@ -153,6 +157,21 @@ def scan_llm_page(cfg: SourceConfig, fetch: Fetcher, llm: ChatBackend) -> list[J
 
 
 def scan_source(cfg: SourceConfig, fetch: Fetcher, llm: ChatBackend | None) -> list[JobPosting]:
+    """Scan `cfg.url` plus every entry of `cfg.extra_urls`."""
+    jobs: list[JobPosting] = []
+    for url in [cfg.url, *cfg.extra_urls]:
+        page_cfg = cfg.model_copy(update={"url": url, "extra_urls": []})
+        try:
+            jobs += _scan_one(page_cfg, fetch, llm)
+        except Exception:
+            if url == cfg.url:
+                raise  # first page failing = the source is broken
+            log.warning("%s: extra page %s failed", cfg.name, url, exc_info=True)
+    seen: set[str] = set()
+    return [j for j in jobs if not (j.uid in seen or seen.add(j.uid))]
+
+
+def _scan_one(cfg: SourceConfig, fetch: Fetcher, llm: ChatBackend | None) -> list[JobPosting]:
     if cfg.type == "rss":
         jobs = scan_rss(cfg, fetch)
     elif cfg.type == "html":

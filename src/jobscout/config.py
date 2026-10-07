@@ -64,6 +64,10 @@ class SourceConfig(BaseModel):
     # all: keep only postings whose title/description contains one of these
     include_keywords: list[str] = Field(default_factory=list)
     exclude_keywords: list[str] = Field(default_factory=list)
+    # all: further pages scanned with the same settings (e.g. ?page=2)
+    extra_urls: list[str] = Field(default_factory=list)
+    # llm_page: only extract positions relevant to this description (saves matching cost)
+    focus: str | None = None
     # llm_page: follow detail links to fetch full descriptions
     fetch_details: bool = False
     extra: dict[str, Any] = Field(default_factory=dict)
