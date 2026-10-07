@@ -54,7 +54,7 @@ The scheduled scan runs in your **private** data repo, so logs and results never
 ## Quick start (local)
 
 ```bash
-pip install "jobscout[dashboard] @ git+https://github.com/__OWNER__/__REPO__.git"
+pip install "jobscout[dashboard] @ git+https://github.com/Goupus/Jobscout.git"
 
 jobscout init --data-dir ~/jobscout-data   # creates settings, sources, example profile
 jobscout demo --data-dir ~/jobscout-data   # optional: fictional matches to try the UI
@@ -75,7 +75,7 @@ Set `JOBSCOUT_DATA_DIR` to skip `--data-dir` every time.
 
 1. Create a **private** repository, e.g. `jobscout-data`, and push your data directory to it
    (`jobscout init` already created `.github/workflows/scan.yml` inside it).
-2. In `scan.yml`, set `JOBSCOUT_PACKAGE` to this repository (replace `__OWNER__/__REPO__`).
+2. `JOBSCOUT_PACKAGE` in `scan.yml` already points to `Goupus/Jobscout` – change it if you use a fork.
 3. Add your API key as a repository secret (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`).
 4. The workflow runs **Monday and Thursday** and commits the updated `jobscout.db`. Trigger it manually via *Actions → jobscout scan → Run workflow*.
 5. To review: `git pull` in your data repo and run `jobscout dashboard`.

@@ -18,7 +18,7 @@ concurrency:
 
 env:
   # Where to install jobscout from – change if you use a fork or pin a tag (@v0.1.0)
-  JOBSCOUT_PACKAGE: "jobscout @ git+https://github.com/__OWNER__/__REPO__.git"
+  JOBSCOUT_PACKAGE: "jobscout @ git+https://github.com/Goupus/Jobscout.git"
 
 jobs:
   scan:

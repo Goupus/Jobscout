@@ -46,7 +46,7 @@ class Settings(BaseModel):
     llm: LLMSettings = LLMSettings()
     matching: MatchingSettings = MatchingSettings()
     http_timeout: float = 30.0
-    user_agent: str = "jobscout/0.1 (+https://github.com)"
+    user_agent: str = "jobscout/0.1 (+https://github.com/Goupus/Jobscout)"
 
 
 class SourceConfig(BaseModel):
