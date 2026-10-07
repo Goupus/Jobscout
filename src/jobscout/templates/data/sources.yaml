@@ -1,0 +1,41 @@
+# Which sources to scan. Three types:
+#
+#   rss       – a job feed (cheapest, most robust)
+#   html      – a list page scraped with CSS selectors (no LLM cost)
+#   llm_page  – any page; the LLM extracts open positions (research groups,
+#               small career pages, pages without structure)
+#
+# include_keywords / exclude_keywords filter postings before matching.
+# The URLs below are EXAMPLES – check them and replace with your own sources.
+# Please respect each site's terms of use / robots.txt.
+
+sources:
+  - name: EURAXESS – process engineering
+    type: llm_page
+    url: https://euraxess.ec.europa.eu/jobs/search?keywords=process%20engineering%20machine%20learning
+    include_keywords: [phd, doctoral, researcher, process, membrane, machine learning]
+    fetch_details: false
+
+  - name: Example research group
+    type: llm_page
+    url: https://example.org/research-group/open-positions
+    organization: Example University – Chair of Process Systems Engineering
+    fetch_details: true
+    enabled: false
+
+  - name: Example job board feed
+    type: rss
+    url: https://example.org/jobs/feed.xml
+    include_keywords: [engineer, data, phd]
+    exclude_keywords: [internship]
+    enabled: false
+
+  - name: Example company career page
+    type: html
+    url: https://example.com/careers
+    organization: Example GmbH
+    item_selector: "li.job"
+    title_selector: "h3"
+    link_selector: "a"
+    location_selector: ".location"
+    enabled: false

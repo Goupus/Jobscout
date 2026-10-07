@@ -1,0 +1,23 @@
+# Structured facts about you. Free-form YAML – add whatever helps the matcher.
+# This example is fictional. Replace it with your own data in your PRIVATE data repo.
+
+name: Alex Example
+headline: Process engineer with a focus on machine learning
+education:
+  - degree: M.Sc. Chemical Engineering
+    institution: Example University
+    year: 2024
+    thesis: Data-driven screening of membrane materials
+experience:
+  - role: Process Engineer
+    organization: Example Chemicals AG
+    period: 2022-2024
+    highlights:
+      - Built a Python model that predicted fouling and reduced cleaning cycles
+skills:
+  technical: [Python, machine learning, process simulation, Aspen Plus, data analysis]
+  methods: [design of experiments, membrane separation]
+languages: [English (C1), German (native)]
+constraints:
+  start: as soon as possible
+  regions: [Germany, Netherlands, Switzerland, Scandinavia]

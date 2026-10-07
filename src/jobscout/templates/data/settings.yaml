@@ -1,0 +1,22 @@
+# jobscout settings – lives in your PRIVATE data directory.
+
+llm:
+  # Any LiteLLM model string: https://docs.litellm.ai/docs/providers
+  #   anthropic/claude-sonnet-5-5   (needs ANTHROPIC_API_KEY)
+  #   openai/gpt-4o-mini            (needs OPENAI_API_KEY)
+  #   ollama/llama3.1               (local, set api_base: http://localhost:11434)
+  model: anthropic/claude-sonnet-5-5
+  # Cheaper model for extracting postings from unstructured pages (optional)
+  fast_model: anthropic/claude-haiku-4-5
+  temperature: 0.2
+  max_tokens: 2000
+
+matching:
+  # Both scores >= threshold → "Top match"; only interest → "Stretch"; only profile → "Solid option"
+  category_threshold: 65
+  # 0.0 = send every new posting to the LLM. Raise (e.g. 0.2) to save API cost.
+  prefilter_min_score: 0.0
+  # Safety cap for API cost per run
+  max_matches_per_run: 60
+  # Language of summaries and application advice: en, de, ...
+  language: en

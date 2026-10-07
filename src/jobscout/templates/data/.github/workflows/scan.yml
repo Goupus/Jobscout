@@ -1,0 +1,49 @@
+# Scheduled scan – lives in your PRIVATE data repo, so logs and results stay private.
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   ANTHROPIC_API_KEY  (or OPENAI_API_KEY / whatever your LiteLLM model needs)
+name: jobscout scan
+
+on:
+  schedule:
+    # Monday and Thursday, 05:17 UTC (≈ 07:17 Berlin in summer, 06:17 in winter)
+    - cron: "17 5 * * 1,4"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: jobscout-scan
+  cancel-in-progress: false
+
+env:
+  # Where to install jobscout from – change if you use a fork or pin a tag (@v0.1.0)
+  JOBSCOUT_PACKAGE: "jobscout @ git+https://github.com/__OWNER__/__REPO__.git"
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install jobscout
+        run: pip install "$JOBSCOUT_PACKAGE"
+
+      - name: Scan and match
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: jobscout scan --data-dir .
+
+      - name: Commit results
+        run: |
+          git config user.name "jobscout-bot"
+          git config user.email "jobscout-bot@users.noreply.github.com"
+          git add jobscout.db
+          git diff --cached --quiet || git commit -m "scan $(date -u +%Y-%m-%d)"
+          git push

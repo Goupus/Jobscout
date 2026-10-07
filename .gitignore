@@ -1,0 +1,15 @@
+# Personal data never goes into this repo – keep it in a private data repo
+/data/
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.env
+.streamlit/secrets.toml
