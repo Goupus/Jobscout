@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jobscout"
-version = "0.2.2"
+version = "0.3.0"
 description = "Scan job boards, company and research-group websites, and match postings against your applicant profile and interests with an LLM."
 readme = "README.md"
 requires-python = ">=3.10"

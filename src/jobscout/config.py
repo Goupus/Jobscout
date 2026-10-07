@@ -68,8 +68,12 @@ class SourceConfig(BaseModel):
     extra_urls: list[str] = Field(default_factory=list)
     # llm_page: only extract positions relevant to this description (saves matching cost)
     focus: str | None = None
-    # llm_page: follow detail links to fetch full descriptions
+    # llm_page: open every posting's own page for the full text
     fetch_details: bool = False
+    # llm_page: follow "next page" links of a result list up to this many pages
+    max_pages: int = Field(3, ge=1, le=20)
+    # llm_page: open at most this many postings per scan (politeness / speed)
+    max_details: int = Field(25, ge=0, le=200)
     extra: dict[str, Any] = Field(default_factory=dict)
 
 

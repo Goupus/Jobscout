@@ -1,4 +1,4 @@
-"""Sources page: table editor, default focus, test a source, raw YAML."""
+"""Sources page: add by link, table editor, default focus, test a source, raw YAML."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ TYPE_HELP = {
     "rss": "A job feed (RSS/Atom). Cheapest and most robust if the site offers one.",
     "html": "A list page read with CSS selectors – no LLM cost, needs the selectors (edit in YAML).",
 }
-CORE = ["enabled", "name", "type", "url", "organization", "fetch_details"]
+CORE = ["url", "name", "enabled", "fetch_details", "organization", "type"]
 
 
 def render() -> None:
@@ -31,17 +31,22 @@ def render() -> None:
         _raw_editor(p)
         return
 
-    st.markdown(
-        "Where jobscout looks for postings. Add a row for every job board, career page or research-group page. "
-        "For most pages, type **llm_page** is right."
-    )
-    with st.expander("Which type should I use?"):
+    # raw source dicts (without defaults) so advanced keys survive edits
+    file_items = (yaml.safe_load(p.sources.read_text(encoding="utf-8")) or {}).get("sources", []) if p.sources.exists() else []
+
+    _add_links(p, file_items, raw_defaults)
+
+    st.subheader(f"Your sources ({len(sources)})")
+    with st.expander("How does jobscout read a link? · Which type should I use?"):
+        st.markdown(
+            "For a link of type **llm_page** jobscout opens the page, lets the LLM pick out the open positions "
+            "(skipping everything outside your focus), follows the **next-page** links of result lists "
+            "(up to 3 pages) and – with *Open each posting* – reads every posting's own page before matching."
+        )
         for t, h in TYPE_HELP.items():
             st.markdown(f"- **{t}** – {h}")
         st.markdown("Tip: for job boards, run a search in your browser and paste the **URL of the results page**.")
 
-    # raw source dicts (without defaults) so advanced keys survive table edits
-    file_items = (yaml.safe_load(p.sources.read_text(encoding="utf-8")) or {}).get("sources", []) if p.sources.exists() else []
     df = pd.DataFrame([{k: getattr(s, k) for k in CORE} for s in sources], columns=CORE)
     df["organization"] = df["organization"].fillna("")
     edited = st.data_editor(
@@ -50,9 +55,9 @@ def render() -> None:
             "enabled": st.column_config.CheckboxColumn("On", width="small", default=True),
             "name": st.column_config.TextColumn("Name", required=True),
             "type": st.column_config.SelectboxColumn("Type", options=list(TYPE_HELP), required=True, default="llm_page"),
-            "url": st.column_config.LinkColumn("URL", required=True, validate=r"^https?://", width="large"),
+            "url": st.column_config.LinkColumn("Link", required=True, validate=r"^https?://", width="medium"),
             "organization": st.column_config.TextColumn("Organization (optional)"),
-            "fetch_details": st.column_config.CheckboxColumn("Open each posting", help="llm_page: read every posting's page for the full text (better matches, slower)", default=False),
+            "fetch_details": st.column_config.CheckboxColumn("Open each posting", help="llm_page: read every posting's page for the full text (better matches, slower)", default=True),
         },
     )
 
@@ -88,6 +93,42 @@ def render() -> None:
     st.divider()
     with st.expander("Advanced: edit sources.yaml directly (keywords, extra pages, CSS selectors)"):
         _raw_editor(p)
+
+
+def _add_links(p, file_items: list[dict], raw_defaults: dict) -> None:
+    st.subheader("➕ Add sources")
+    st.markdown("Paste links – one per line: job boards (ideally a search results page), career pages, "
+                "research-group pages. jobscout names them and reads them automatically.")
+    with st.form("add_links", clear_on_submit=True):
+        text = st.text_area("Links", height=110, label_visibility="collapsed",
+                            placeholder="https://www.academictransfer.com/en/jobs/?q=membrane\nhttps://some-university.example/group/open-positions")
+        submitted = st.form_submit_button("Add", type="primary")
+    if not submitted:
+        return
+    from jobscout.sources import make_fetcher, source_from_url
+
+    existing = {str(x.get("url", "")).rstrip("/") for x in file_items}
+    urls, skipped = [], []
+    for line in text.splitlines():
+        u = line.strip().strip("<>")
+        if not u:
+            continue
+        if not u.startswith(("http://", "https://")):
+            u = "https://" + u
+        (skipped if u.rstrip("/") in existing or u in urls else urls).append(u)
+    if not urls:
+        st.warning("No new links found." + (f" Already in your list: {len(skipped)}." if skipped else ""))
+        return
+    settings = common.settings().model_copy(update={"http_timeout": 8.0})
+    fetch = make_fetcher(settings)
+    new = []
+    with st.spinner(f"Reading {len(urls)} page title(s)…"):
+        for u in urls:
+            new.append(source_from_url(u, fetch))
+    current = [SourceConfig.model_validate(x) for x in file_items]
+    save_sources(p, current + new, raw_defaults)
+    st.toast(f"Added {len(new)} source(s)" + (f", {len(skipped)} already existed" if skipped else ""))
+    st.rerun()
 
 
 def _tester(sources: list[SourceConfig]) -> None:

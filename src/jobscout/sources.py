@@ -152,39 +152,69 @@ def scan_html(cfg: SourceConfig, fetch: Fetcher) -> list[JobPosting]:
 # --- llm_page ------------------------------------------------------------
 EXTRACT_SYSTEM = """You extract open job/PhD/research positions from web page text.
 Return JSON: {"positions": [{"title": str, "url": str|null, "organization": str|null,
-"location": str|null, "deadline": str|null, "description": str}]}
-Only include positions that are currently open. "description" should be a faithful
-summary (max ~150 words) of tasks and requirements. If there are none, return {"positions": []}."""
+"location": str|null, "deadline": str|null, "description": str}], "next_page": str|null}
+Only include positions that are currently open. "url" is the link to the posting's own page
+(take it from LINKS ON PAGE). "description" should be a faithful summary (max ~150 words) of
+tasks and requirements. "next_page" is the link to the next page of this result list
+(pagination such as "next", "›", "page 2"), or null if there is none.
+If there are no positions, return {"positions": [], "next_page": null}."""
 
 
-def scan_llm_page(cfg: SourceConfig, fetch: Fetcher, llm: ChatBackend) -> list[JobPosting]:
-    html = fetch(cfg.url)
+def _page_links(html: str, base: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
-    links = "\n".join(
-        f"- {' '.join(a.get_text().split())[:80]} -> {urljoin(cfg.url, a['href'])}"
+    return "\n".join(
+        f"- {' '.join(a.get_text().split())[:80]} -> {urljoin(base, a['href'])}"
         for a in soup.find_all("a", href=True)
         if a.get_text(strip=True)
-    )[:6000]
+    )[:8000]
+
+
+def _extract_page(cfg: SourceConfig, url: str, fetch: Fetcher, llm: ChatBackend) -> tuple[list[dict], str | None]:
+    html = fetch(url)
     system = EXTRACT_SYSTEM
     if cfg.focus:
         system += (f"\nOnly include positions that could plausibly be relevant to: {cfg.focus}. "
                    "When in doubt, include the position.")
-    user = f"Page URL: {cfg.url}\n\nPAGE TEXT:\n{html_to_text(html)}\n\nLINKS ON PAGE:\n{links}"
-    data = ask_json(llm, system, user, fast=True)
-    jobs = []
-    for p in (data or {}).get("positions", []):
-        if not p.get("title"):
-            continue
-        url = urljoin(cfg.url, p["url"]) if p.get("url") else cfg.url
+    user = f"Page URL: {url}\n\nPAGE TEXT:\n{html_to_text(html)}\n\nLINKS ON PAGE:\n{_page_links(html, url)}"
+    data = ask_json(llm, system, user, fast=True) or {}
+    positions = [p for p in data.get("positions", []) if isinstance(p, dict) and p.get("title")]
+    for p in positions:
+        p["url"] = urljoin(url, p["url"]) if p.get("url") else url
+    nxt = data.get("next_page")
+    nxt = urljoin(url, nxt) if isinstance(nxt, str) and nxt.strip() else None
+    return positions, nxt
+
+
+def scan_llm_page(cfg: SourceConfig, fetch: Fetcher, llm: ChatBackend) -> list[JobPosting]:
+    """Read the page, follow its pagination (max_pages) and optionally open every posting."""
+    positions: list[dict] = []
+    url: str | None = cfg.url
+    visited: set[str] = set()
+    while url and url not in visited and len(visited) < max(1, cfg.max_pages):
+        visited.add(url)
+        try:
+            found, url = _extract_page(cfg, url, fetch, llm)
+        except Exception:
+            if len(visited) == 1:
+                raise  # the start page itself failed
+            log.warning("%s: pagination stopped at %s", cfg.name, url, exc_info=True)
+            break
+        positions += found
+
+    jobs, details = [], 0
+    for p in positions:
         description = p.get("description") or ""
-        if cfg.fetch_details and url != cfg.url:
+        if cfg.fetch_details and p["url"] not in visited and details < cfg.max_details:
+            details += 1
             try:
-                description = html_to_text(fetch(url), 8000)
+                text = html_to_text(fetch(p["url"]), 8000)
+                if len(text) > len(description):  # pages that need JavaScript return almost nothing
+                    description = text
             except Exception as exc:  # noqa: BLE001
-                log.warning("detail fetch failed for %s: %s", url, exc)
+                log.warning("detail fetch failed for %s: %s", p["url"], exc)
         jobs.append(
             JobPosting(
-                source=cfg.name, title=p["title"], url=url,
+                source=cfg.name, title=p["title"], url=p["url"],
                 organization=p.get("organization") or cfg.organization,
                 location=p.get("location"), deadline=p.get("deadline"),
                 description=description,
@@ -225,3 +255,31 @@ def _scan_one(cfg: SourceConfig, fetch: Fetcher, llm: ChatBackend | None) -> lis
 def preview_source(cfg: SourceConfig, settings: Settings, llm: ChatBackend | None) -> list[JobPosting]:
     """Scan one source with the real network without storing anything (for testing a source)."""
     return scan_source(cfg, make_fetcher(settings), llm)
+
+
+def name_from_url(url: str, html: str | None = None) -> str:
+    """A readable source name: the page <title> if available, else host + path."""
+    from urllib.parse import urlparse
+
+    if html:
+        title = BeautifulSoup(html, "html.parser").title
+        text = " ".join(title.get_text().split()) if title else ""
+        if 3 <= len(text) <= 90:
+            return text
+    u = urlparse(url)
+    host = u.netloc.removeprefix("www.")
+    path = u.path.strip("/").split("/")
+    tail = " / ".join(x for x in path[:2] if x)
+    return f"{host} – {tail}" if tail else host
+
+
+def source_from_url(url: str, fetch: Fetcher | None = None) -> SourceConfig:
+    """Everything needed to scan a pasted link: read with the LLM, follow pages, open postings."""
+    url = url.strip()
+    html = None
+    if fetch is not None:
+        try:
+            html = fetch(url)
+        except Exception:  # noqa: BLE001 - naming is best effort; the scan reports real errors
+            html = None
+    return SourceConfig(name=name_from_url(url, html), type="llm_page", url=url, fetch_details=True)

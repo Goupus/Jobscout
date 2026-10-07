@@ -119,3 +119,43 @@ def test_scan_atom():
     assert jobs[0].url == "https://uni.example/jobs/7"
     assert jobs[0].organization == "Uni Y"
     assert jobs[0].description == "ML meets process design"
+
+
+def test_pagination_and_detail_pages():
+    from jobscout.sources import scan_llm_page
+
+    pages = {
+        "https://jobs.example/list": ({"positions": [{"title": "PhD A", "url": "/a"}], "next_page": "/list?p=2"}),
+        "https://jobs.example/list?p=2": ({"positions": [{"title": "PhD B", "url": "/b"}], "next_page": "/list?p=3"}),
+    }
+
+    class PagedLLM:
+        def chat(self, messages, *, fast=False):
+            import json, re
+            url = re.search(r"Page URL: (\S+)", messages[1]["content"]).group(1)
+            return json.dumps(pages[url])
+
+    fetched = []
+
+    def fetch(url):
+        fetched.append(url)
+        return f"<html><body>Full text of {url} " + "x" * 300 + "</body></html>"
+
+    cfg = SourceConfig(name="board", type="llm_page", url="https://jobs.example/list", fetch_details=True, max_pages=2)
+    jobs = scan_llm_page(cfg, fetch, PagedLLM())
+    assert [j.title for j in jobs] == ["PhD A", "PhD B"]           # followed one "next page", stopped at max_pages
+    assert "Full text of https://jobs.example/a" in jobs[0].description   # opened the posting
+    assert "https://jobs.example/list?p=3" not in fetched
+
+    cfg = cfg.model_copy(update={"max_details": 1})
+    jobs = scan_llm_page(cfg, fetch, PagedLLM())
+    assert "Full text" in jobs[0].description and "Full text" not in jobs[1].description
+
+
+def test_source_from_url():
+    from jobscout.sources import source_from_url
+
+    s = source_from_url("https://www.uni.example/pse/jobs/", lambda u: "<html><head><title>Jobs – PSE Group</title></head></html>")
+    assert s.name == "Jobs – PSE Group" and s.type == "llm_page" and s.fetch_details
+    s = source_from_url("https://www.uni.example/pse/jobs/", None)
+    assert s.name == "uni.example – pse / jobs"

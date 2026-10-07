@@ -86,3 +86,21 @@ def test_store_survives_thread_switch(data_dir, monkeypatch):
     t = threading.Thread(target=lambda: out.setdefault("rows", common.store().overview()))
     t.start(); t.join()
     assert len(out["rows"]) == 4
+
+
+def test_sources_add_by_link(data_dir, monkeypatch):
+    import yaml
+
+    from jobscout import sources as src_mod
+
+    monkeypatch.setattr(src_mod, "make_fetcher", lambda s: (lambda url: "<html><title>PSE Group – Open positions</title></html>"))
+    at = _open("sources", data_dir, monkeypatch)
+    at.text_area[0].set_value("https://uni.example/pse/jobs\nhttps://example.org/research-group/open-positions\n\nboard.example/search?q=phd")
+    next(b for b in at.button if b.label == "Add").click().run()
+    assert not at.exception, [e.value for e in at.exception]
+    saved = yaml.safe_load(data_dir.sources.read_text())["sources"]
+    urls = [s["url"] for s in saved]
+    assert "https://uni.example/pse/jobs" in urls and "https://board.example/search?q=phd" in urls
+    assert urls.count("https://example.org/research-group/open-positions") == 1   # already existed
+    new = next(s for s in saved if s["url"] == "https://uni.example/pse/jobs")
+    assert new["name"] == "PSE Group – Open positions" and new["fetch_details"] is True
