@@ -59,10 +59,25 @@ def profile() -> Profile | None:
 
 
 def store() -> Store:
-    # one connection per session; sqlite objects must stay on their thread
-    if "store" not in st.session_state:
-        st.session_state.store = Store(paths().db)
-    return st.session_state.store
+    """A database connection for the current script run.
+
+    Streamlit may execute each rerun on a different thread, and a pull from GitHub
+    replaces the database file – so the connection is reopened whenever the
+    thread or the file changes.
+    """
+    import threading
+
+    db = paths().db
+    stamp = (threading.get_ident(), db.stat().st_mtime_ns if db.exists() else 0, db.stat().st_ino if db.exists() else 0)
+    cached = st.session_state.get("_store")
+    if cached is None or cached[0] != stamp:
+        if cached is not None:
+            try:
+                cached[1].close()
+            except Exception:  # noqa: BLE001 - closing from another thread may fail; it's garbage anyway
+                pass
+        st.session_state._store = (stamp, Store(db))
+    return st.session_state._store[1]
 
 
 def provider_env_var(model: str) -> str | None:

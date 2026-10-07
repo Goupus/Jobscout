@@ -68,3 +68,21 @@ def test_sources_save_keeps_advanced_keys(data_dir, monkeypatch):
     assert saved["sources"][0]["extra_urls"] == ["https://a.example/jobs?page=2"]
     assert saved["sources"][0]["include_keywords"] == ["phd"]
     assert "focus" not in saved["sources"][0]
+
+
+def test_store_survives_thread_switch(data_dir, monkeypatch):
+    """Streamlit reruns can happen on another thread – the store must still work."""
+    import threading
+
+    from jobscout.app import common
+
+    seed(data_dir)
+    monkeypatch.setattr(common, "paths", lambda: data_dir)
+    fake_state = {}
+    monkeypatch.setattr(common.st, "session_state", type("S", (dict,), {"__getattr__": dict.get, "__setattr__": dict.__setitem__})(fake_state))
+    first = common.store()
+    assert first.overview()
+    out = {}
+    t = threading.Thread(target=lambda: out.setdefault("rows", common.store().overview()))
+    t.start(); t.join()
+    assert len(out["rows"]) == 4
