@@ -100,7 +100,7 @@ def _chat(p, s) -> None:
 
     c = st.columns([0.5, 0.25, 0.25])
     c[0].caption(f"{sum(m['role'] == 'user' for m in session.transcript)} answers so far")
-    if c[1].button("✅ Finish & create form", use_container_width=True):
+    if c[1].button("✅ Finish & create form", width="stretch"):
         with st.spinner("Filling in the form…"):
             try:
                 form = session.finish(llm)
@@ -110,7 +110,7 @@ def _chat(p, s) -> None:
         st.session_state.iv_messages = session.messages
         st.session_state.iv_form = form.model_dump()
         st.rerun()
-    if c[2].button("↺ Start over", use_container_width=True):
+    if c[2].button("↺ Start over", width="stretch"):
         _reset()
         st.rerun()
 

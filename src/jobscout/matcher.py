@@ -65,10 +65,27 @@ class _LLMMatch(BaseModel):
     red_flags: list[str] = Field(default_factory=list)
 
 
+def criteria_key(profile: Profile, settings: MatchingSettings) -> str:
+    """Changes when the profile or your custom criteria change → stored postings are re-assessed."""
+    import hashlib
+
+    if not settings.custom_criteria.strip():
+        return profile.fingerprint  # unchanged key for setups without custom criteria
+    return hashlib.sha1(f"{profile.fingerprint}|{settings.custom_criteria.strip()}".encode()).hexdigest()[:12]
+
+
+def build_system_prompt(settings: MatchingSettings) -> str:
+    system = SYSTEM.replace("{language}", LANG_NAMES.get(settings.language, settings.language))
+    if settings.custom_criteria.strip():
+        system += ("\n\nADDITIONAL CRITERIA FROM THE APPLICANT – apply them to the scores and mention them in "
+                   f"the summary when they make a difference:\n{settings.custom_criteria.strip()}")
+    return system
+
+
 def match_job(
     job: JobPosting, profile: Profile, llm: ChatBackend, settings: MatchingSettings, model_name: str = ""
 ) -> MatchResult:
-    system = SYSTEM.replace("{language}", LANG_NAMES.get(settings.language, settings.language))
+    system = build_system_prompt(settings)
     user = (
         f"# APPLICANT\n{profile.to_prompt()}\n\n"
         f"# JOB POSTING\nTitle: {job.title}\nOrganization: {job.organization or '-'}\n"

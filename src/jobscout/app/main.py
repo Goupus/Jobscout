@@ -42,7 +42,7 @@ with st.sidebar:
     if repo.is_repo and repo.remote:
         if repo.changed:
             st.info(f"{len(repo.changed)} unsaved change(s)")
-            if st.button("⬆️ Save to GitHub", use_container_width=True):
+            if st.button("⬆️ Save to GitHub", width="stretch"):
                 try:
                     st.toast(sync.push(p.data_dir))
                 except sync.SyncError as exc:
@@ -50,7 +50,7 @@ with st.sidebar:
                 st.rerun()
         else:
             st.caption("✅ In sync with GitHub")
-        if st.button("⬇️ Get latest results", use_container_width=True):
+        if st.button("⬇️ Get latest results", width="stretch"):
             try:
                 st.toast(sync.pull(p.data_dir))
             except sync.SyncError as exc:

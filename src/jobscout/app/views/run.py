@@ -53,10 +53,10 @@ def _github(p) -> None:
         st.info(f"{len(repo.changed)} unsaved change(s): " + ", ".join(f"`{c}`" for c in repo.changed[:8])
                 + (" …" if len(repo.changed) > 8 else ""))
     c = st.columns(2)
-    if c[0].button("⬇️ Get latest results", use_container_width=True):
+    if c[0].button("⬇️ Get latest results", width="stretch"):
         _do(sync.pull, p.data_dir)
     msg = c[1].text_input("Change description", "Update via jobscout app", label_visibility="collapsed")
-    if c[1].button("⬆️ Save my changes to GitHub", type="primary", use_container_width=True, disabled=not repo.changed):
+    if c[1].button("⬆️ Save my changes to GitHub", type="primary", width="stretch", disabled=not repo.changed):
         _do(sync.push, p.data_dir, msg)
     if repo.github_url:
         st.caption(f"Secrets for the scheduled scan: [repository settings]({repo.github_url}/settings/secrets/actions)")
@@ -136,5 +136,5 @@ def _history() -> None:
     df = pd.DataFrame(runs)[["started_at", "new_jobs", "matched", "errors"]]
     df["started_at"] = df["started_at"].str[:16].str.replace("T", " ")
     df["errors"] = df["errors"].map(lambda e: "" if e in ("[]", None) else e)
-    st.dataframe(df, use_container_width=True, hide_index=True,
+    st.dataframe(df, width="stretch", hide_index=True,
                  column_config={"started_at": "Started (UTC)", "new_jobs": "New", "matched": "Matched", "errors": "Errors"})

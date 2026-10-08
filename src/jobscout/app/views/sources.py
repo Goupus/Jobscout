@@ -51,7 +51,7 @@ def render() -> None:
     df = pd.DataFrame([{k: getattr(s, k) for k in CORE} for s in sources], columns=CORE)
     df["organization"] = df["organization"].fillna("")
     edited = st.data_editor(
-        df, num_rows="dynamic", use_container_width=True, hide_index=True, key="src_editor",
+        df, num_rows="dynamic", width="stretch", hide_index=True, key="src_editor",
         column_config={
             "enabled": st.column_config.CheckboxColumn("On", width="small", default=True),
             "name": st.column_config.TextColumn("Name", required=True),
@@ -163,7 +163,7 @@ def _tester(sources: list[SourceConfig]) -> None:
         else:
             st.success(f"Found {len(jobs)} posting(s):")
             st.dataframe(pd.DataFrame([{"title": j.title, "organization": j.organization, "url": j.url} for j in jobs]),
-                         use_container_width=True, hide_index=True,
+                         width="stretch", hide_index=True,
                          column_config={"url": st.column_config.LinkColumn("url")})
 
 

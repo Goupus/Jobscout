@@ -33,16 +33,23 @@ class LiteLLMBackend:
         import litellm  # imported lazily: slow import
 
         model = (self.s.fast_model or self.s.model) if fast else self.s.model
-        kwargs: dict[str, Any] = dict(
-            model=model, messages=messages,
-            temperature=self.s.temperature, max_tokens=self.s.max_tokens,
-        )
+        litellm.drop_params = True  # silently drop settings a model doesn't support instead of failing
+        kwargs: dict[str, Any] = dict(model=model, messages=messages, max_tokens=self.s.max_tokens)
+        if self.s.temperature is not None:
+            kwargs["temperature"] = self.s.temperature
         if self.s.api_base:
             kwargs["api_base"] = self.s.api_base
         try:
             resp = litellm.completion(**kwargs)
         except Exception as exc:  # noqa: BLE001 - surface any provider error
-            raise LLMError(f"{model}: {exc}") from exc
+            if "temperature" in kwargs and "temperature" in str(exc).lower():
+                kwargs.pop("temperature")  # model only accepts its default temperature – retry without
+                try:
+                    resp = litellm.completion(**kwargs)
+                except Exception as exc2:  # noqa: BLE001
+                    raise LLMError(f"{model}: {exc2}") from exc2
+            else:
+                raise LLMError(f"{model}: {exc}") from exc
         return resp.choices[0].message.content or ""
 
     @property

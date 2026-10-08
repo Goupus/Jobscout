@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from .config import Paths, Settings, SourceConfig
 from .llm import ChatBackend, LLMError
-from .matcher import match_job, prescore
+from .matcher import criteria_key, match_job, prescore
 from .profile import Profile
 from .sources import Fetcher, scan_source
 from .storage import Store
@@ -47,7 +47,8 @@ def scan_all(sources: list[SourceConfig], store: Store, fetch: Fetcher, llm: Cha
 
 def match_pending(store: Store, profile: Profile, llm: ChatBackend, settings: Settings, report: RunReport,
                   model_name: str = "", dismissed: set[str] | None = None) -> None:
-    pending = store.unmatched_jobs(profile.fingerprint, settings.matching.max_matches_per_run, exclude=dismissed)
+    key = criteria_key(profile, settings.matching)
+    pending = store.unmatched_jobs(key, settings.matching.max_matches_per_run, exclude=dismissed)
     for job in pending:
         if prescore(job, profile) < settings.matching.prefilter_min_score:
             report.skipped_prefilter += 1
@@ -57,7 +58,7 @@ def match_pending(store: Store, profile: Profile, llm: ChatBackend, settings: Se
         except LLMError as exc:
             report.errors.append(f"match {job.title[:40]}: {exc}")
             continue
-        store.save_match(result, profile.fingerprint)
+        store.save_match(result, key)
         report.matched += 1
 
 

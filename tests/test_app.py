@@ -133,3 +133,31 @@ def test_people_page_add_confirm_and_show(data_dir, monkeypatch):
     at = _open("people", data_dir, monkeypatch)
     assert not at.exception
     assert any("overlap 77" in e.label for e in at.expander)
+
+
+def test_matches_shows_failed_scan_and_threshold(data_dir, monkeypatch):
+    import json
+
+    from jobscout.config import load_settings, save_settings
+    from jobscout.models import JobPosting
+    from jobscout.storage import Store
+
+    store = Store(data_dir.db)
+    store.upsert_job(JobPosting(source="s", title="PhD X", url="https://x.example/1"))
+    store.log_run("2026-10-07T07:38:00+00:00", "2026-10-07T07:39:00+00:00", 1, 0, [
+        "AcademicPositions: Client error '403 Forbidden'",
+        "match PhD X: anthropic/m: does not support temperature=0.2"])
+    store.close()
+    at = _open("matches", data_dir, monkeypatch)
+    assert not at.exception
+    assert any("could not assess any posting" in e.value for e in at.error)
+    assert any("not assessed yet" in i.value for i in at.info)
+
+    # threshold changes the category without a new assessment
+    seed(data_dir)
+    s = load_settings(data_dir)
+    s.matching.category_threshold = 90
+    save_settings(data_dir, s)
+    at = _open("matches", data_dir, monkeypatch)
+    # demo scores (88/94, 82/71, 41/86, 74/22) at threshold 90 → only one stretch, three no match
+    assert [m.value for m in at.metric][:4] == ["0", "1", "0", "3"]

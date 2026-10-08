@@ -29,7 +29,8 @@ class LLMSettings(BaseModel):
     model: str = "anthropic/claude-sonnet-5-5"
     # Cheaper model for extraction / pre-filtering. Falls back to `model`.
     fast_model: str | None = None
-    temperature: float = 0.2
+    # None = provider default. Some newer models only accept their default and reject other values.
+    temperature: float | None = None
     max_tokens: int = 2000
     api_base: str | None = None
 
@@ -40,6 +41,9 @@ class MatchingSettings(BaseModel):
     prefilter_min_score: float = 0.0
     max_matches_per_run: int = 60
     language: str = "en"  # language of the generated advice, e.g. "de"
+    # Your own rules for the assessment, in plain words – added to the LLM instructions.
+    # e.g. "A PhD position outside Germany is worth +10 interest." / "Rate postdoc roles as no match."
+    custom_criteria: str = ""
 
 
 class PeopleSettings(BaseModel):

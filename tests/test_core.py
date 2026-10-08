@@ -159,3 +159,46 @@ def test_source_from_url():
     assert s.name == "Jobs – PSE Group" and s.type == "llm_page" and s.fetch_details
     s = source_from_url("https://www.uni.example/pse/jobs/", None)
     assert s.name == "uni.example – pse / jobs"
+
+
+def test_temperature_rejected_is_retried_without(monkeypatch):
+    import litellm
+
+    from jobscout.config import LLMSettings
+    from jobscout.llm import LiteLLMBackend
+
+    calls = []
+
+    class Resp:
+        choices = [type("C", (), {"message": type("M", (), {"content": "ok"})()})()]
+
+    def completion(**kw):
+        calls.append(kw)
+        if "temperature" in kw:
+            raise Exception("claude-x does not support temperature=0.2. Only temperature=1 is supported.")
+        return Resp()
+
+    monkeypatch.setattr(litellm, "completion", completion)
+    assert LiteLLMBackend(LLMSettings(model="anthropic/x")).chat([{"role": "user", "content": "hi"}]) == "ok"
+    assert "temperature" not in calls[0]                      # default: no temperature sent at all
+    assert LiteLLMBackend(LLMSettings(model="anthropic/x", temperature=0.2)).chat([{"role": "user", "content": "hi"}]) == "ok"
+    assert "temperature" in calls[1] and "temperature" not in calls[2]   # rejected → retried without
+
+
+def test_custom_criteria_reach_prompt_and_trigger_rematch(data_dir, fake_llm):
+    from jobscout.config import load_settings
+    from jobscout.matcher import build_system_prompt, criteria_key
+    from jobscout.pipeline import run
+
+    settings = load_settings(data_dir)
+    profile = load_profile(data_dir.profile_dir)
+    assert "ADDITIONAL CRITERIA" not in build_system_prompt(settings.matching)
+    assert criteria_key(profile, settings.matching) == profile.fingerprint
+
+    src = [SourceConfig(name="c", type="html", url="https://example.com/", item_selector="li.job", title_selector="h3")]
+    assert run(data_dir, settings, src, profile, lambda u: HTML, fake_llm).matched == 2
+    assert run(data_dir, settings, src, profile, lambda u: HTML, fake_llm).matched == 0
+    settings.matching.custom_criteria = "Netherlands: +10 interest."
+    assert "Netherlands: +10 interest." in build_system_prompt(settings.matching)
+    assert run(data_dir, settings, src, profile, lambda u: HTML, fake_llm).matched == 2   # re-assessed
+    assert "Netherlands" in fake_llm.calls[-1][0]["content"]
